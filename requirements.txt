@@ -1,0 +1,11 @@
+pandas
+asyncpg
+fastapi
+contextlib
+typing
+traceback
+pydantic
+datetime
+pydantic_settings
+os
+Uvicorn
