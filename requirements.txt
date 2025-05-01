@@ -2,9 +2,12 @@ pandas
 asyncpg
 fastapi
 typing
-traceback
 pydantic
 datetime
 pydantic_settings
-os
 Uvicorn
+streamlit
+plotly
+requests
+folium
+streamlit-folium
