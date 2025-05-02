@@ -75,4 +75,4 @@ Follow these steps to get the API running in your local environment.
 Once installed and configured, run the API using Uvicorn:
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn backend.main:app --reload
