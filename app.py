@@ -445,7 +445,7 @@ def display_full_history(city: str):
     st.subheader(f"📚 Tabla de Datos Históricos Detallados para {city}")
     with st.expander("Ver/Ocultar Tabla Completa", expanded=False):
         # --- Explicación Concisa ---
-        st.caption(f"Consulta o descarga todos los registros climáticos históricos disponibles para **{city}**. Útil para análisis detallado.")
+        st.caption(f"Consulta todos los registros climáticos históricos disponibles para **{city}**")
 
         endpoint = f"/weather/{city}"
         with st.spinner(f"Cargando historial completo para {city}..."):
