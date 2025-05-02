@@ -305,9 +305,7 @@ def display_period_summary_map_section():
                 fig.update_layout(coloraxis_colorbar=dict(title=f"{aggregation_type_text}<br>{selected_variable_es.split('(')[0]}", thicknessmode="pixels", thickness=15, lenmode="fraction", len=0.75, yanchor="middle", y=0.5), margin={"r":10,"t":50,"l":10,"b":10})
                 st.plotly_chart(fig, use_container_width=True)
             except Exception as e: st.error(f"Error generando mapa del período: {e}"); st.exception(e)
-    elif map_df is None and city_data_agg is not None:
-        st.error("Error al procesar datos agregados para el mapa.")
-    else: # No data returned from fetch/aggregation
+    else: # No data returned from fetch/aggregation or processing failed
         st.info("No hay datos disponibles para mostrar en el mapa resumen con los parámetros seleccionados.")
 
 def display_correlation_scatter(city: str, start_date: datetime.date, end_date: datetime.date):
