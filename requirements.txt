@@ -11,3 +11,5 @@ plotly
 requests
 folium
 streamlit-folium
+httpx
+statsmodels
