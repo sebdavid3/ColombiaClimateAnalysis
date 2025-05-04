@@ -3,11 +3,10 @@ import requests
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-# import pydeck as pdk # No longer needed
 from datetime import datetime, timedelta
-import pytz # For timezone awareness
-from dateutil.relativedelta import relativedelta # For year-over-year comparison
-import numpy as np # For potential numeric operations
+import pytz 
+from dateutil.relativedelta import relativedelta 
+import numpy as np 
 
 # --- Configuración Inicial y Constantes ---
 
@@ -29,28 +28,24 @@ CITY_COORDS = {
     "Pereira": {"lat": 4.75, "lon": -75.75},
     "Santa Marta": {"lat": 11.125, "lon": -74.125}
 }
-# Internal variable names used by API
 WEATHER_VARIABLES_KEYS = ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "precipitation", "wind_speed_10m", "uv_index", "pressure_msl", "shortwave_radiation", "cloud_cover"]
 
-# Mapeo de variables a nombres en Español para UI (User-Friendly Names con Unidades/Medición)
 VARIABLE_MAP_ES = {
     "temperature_2m": "Temperatura (°C)",
     "relative_humidity_2m": "Humedad Relativa (%)",
     "dew_point_2m": "Punto de Rocío (°C)",
-    "precipitation": "Precipitación (mm)", # Unidad total o tasa según contexto
+    "precipitation": "Precipitación (mm)",
     "wind_speed_10m": "Velocidad Viento (m/s)",
-    "uv_index": "Índice UV (0-11+)", # Escala adimensional
-    "pressure_msl": "Presión Nivel Mar (hPa)", # hPa = hectopascales
-    "shortwave_radiation": "Radiación Solar (W/m²)", # Watts por metro cuadrado
+    "uv_index": "Índice UV (0-11+)",
+    "pressure_msl": "Presión Nivel Mar (hPa)",
+    "shortwave_radiation": "Radiación Solar (W/m²)",
     "cloud_cover": "Cobertura Nubosa (%)"
 }
 
-# Define umbrales (ejemplo, ajustar según necesidad)
 THRESHOLDS = {
     "temperature_2m": {"Calor Extremo": 32, "Calor": 28, "Frío": 10}
     # Add other thresholds if needed
 }
-# Colombia Timezone
 COLOMBIA_TZ = pytz.timezone('America/Bogota')
 
 # --- Funciones Auxiliares (Llamadas API y Procesamiento) ---
@@ -98,7 +93,6 @@ def process_data_for_plotting(data: list | dict | None, time_col: str | None = '
                 if pd.api.types.is_datetime64_any_dtype(df[time_col]): df = df.dropna(subset=[time_col])
             except Exception: pass # Fail silently
         if value_col and value_col in df.columns: df[value_col] = pd.to_numeric(df[value_col], errors='coerce')
-        # Do not warn about missing value col here, handle later if needed
         return df
     else: return pd.DataFrame() # Unexpected format
 
@@ -112,20 +106,18 @@ def convert_df_to_csv(df: pd.DataFrame) -> bytes:
 def display_trends_chart(city: str, start_date: datetime.date, end_date: datetime.date):
     """Muestra la sección de tendencias."""
     st.subheader(f"📈 Evolución del Clima en {city}")
-    # Removed moving average checkbox, simplified columns
     col1, col2 = st.columns([3, 1])
     with col1:
         selected_trend_var_es = st.selectbox(
             "Selecciona la Variable",
-            options=list(VARIABLE_MAP_ES.values()), # Show user-friendly names with units
-            index=0, # Default: Temperatura
+            options=list(VARIABLE_MAP_ES.values()),
+            index=0,
             key=f"trend_var_{city}"
         )
         trend_var = [k for k, v in VARIABLE_MAP_ES.items() if v == selected_trend_var_es][0]
     with col2:
         compare_yoy = st.checkbox("Comparar Año Anterior", key=f"trend_yoy_{city}", value=False, help="Superpone los datos del mismo período del año pasado.")
 
-    # --- Explicación Concisa ---
     st.caption(f"Observa cómo cambió la **{selected_trend_var_es}** en **{city}** entre las fechas seleccionadas, y opcionalmente compárala con el año anterior.")
 
     endpoint = f"/weather/{city}/trends"
@@ -146,11 +138,11 @@ def display_trends_chart(city: str, start_date: datetime.date, end_date: datetim
                 prev_trends_data = fetch_api_data(endpoint, prev_params, request_desc=f"tendencias año anterior para {city}")
                 prev_trends_df = process_data_for_plotting(prev_trends_data, time_col='time', value_col=trend_var)
                 if not prev_trends_df.empty and pd.api.types.is_datetime64_any_dtype(prev_trends_df['time']):
+                     # Desplaza el eje de tiempo del año anterior para alinearlo con el año actual en el gráfico.
                      prev_trends_df['time_shifted'] = prev_trends_df['time'].apply(lambda d: d + relativedelta(years=1))
-                else: prev_trends_df = pd.DataFrame() # Ensure it's empty if processing fails
+                else: prev_trends_df = pd.DataFrame()
         except Exception as e: st.error(f"Error obteniendo datos del año anterior: {e}"); prev_trends_df = pd.DataFrame()
 
-    # --- Visualización ---
     if not trends_df.empty and trend_var in trends_df.columns:
         with st.spinner("Generando gráfico de evolución..."):
             fig = go.Figure()
@@ -169,7 +161,6 @@ def display_precipitation_summary(city: str, start_date: datetime.date, end_date
     st.subheader(f"💧 Resumen de Lluvias en {city}")
     granularity = st.selectbox("Agrupar Lluvia por:", options=["daily", "weekly", "monthly"], index=0, format_func=lambda x: {"daily": "Día", "weekly": "Semana", "monthly": "Mes"}.get(x, x), key=f"precip_granularity_{city}")
 
-    # --- Explicación Concisa ---
     granularity_es_map = {"daily": "diario", "weekly": "semanal", "monthly": "mensual"}
     st.caption(f"Visualiza el total de lluvia acumulada ({granularity_es_map.get(granularity, '')}) en **{city}**. Barras altas indican más lluvia.")
 
@@ -179,7 +170,6 @@ def display_precipitation_summary(city: str, start_date: datetime.date, end_date
         precip_data = fetch_api_data(endpoint, params, request_desc=f"resumen precipitación para {city}")
         precip_df = process_data_for_plotting(precip_data, time_col='period_start', value_col='total_precipitation')
 
-    # --- Visualización ---
     if not precip_df.empty and 'total_precipitation' in precip_df.columns:
         with st.spinner("Generando gráfico de lluvias..."):
             if 'period_start' in precip_df.columns and not pd.api.types.is_datetime64_any_dtype(precip_df['period_start']): precip_df['period_start'] = pd.to_datetime(precip_df['period_start'], errors='coerce')
@@ -202,8 +192,9 @@ def fetch_and_process_period_map_data(variable_key: str, start_date: datetime.da
     city_data_agg = {}
     variable_es = VARIABLE_MAP_ES.get(variable_key, variable_key)
     aggregation_type = "Promedio"
-    with st.spinner(f"Calculando {'totales' if variable_key == 'precipitation' else 'promedios'} de '{variable_es}' para el mapa..."):
+    with st.spinner(f"Calculando {'totales' if variable_key == 'precipitation' else 'promedios'} de '{variable_es}' para el mapa ({start_date.strftime('%d-%b')} a {end_date.strftime('%d-%b-%Y')})..."):
         if variable_key == "precipitation":
+            # La precipitación se suma en el período, no se promedia.
             aggregation_type = "Total Acumulado"
             city_totals = {city: 0.0 for city in AVAILABLE_CITIES}
             for city_name in AVAILABLE_CITIES:
@@ -214,12 +205,13 @@ def fetch_and_process_period_map_data(variable_key: str, start_date: datetime.da
                     try:
                         df_city_precip = pd.DataFrame(city_precip_data)
                         if 'total_precipitation' in df_city_precip.columns:
-                             total = pd.to_numeric(df_city_precip['total_precipitation'], errors='coerce').sum()
-                             city_totals[city_name] = total if pd.notna(total) else 0.0
+                            total = pd.to_numeric(df_city_precip['total_precipitation'], errors='coerce').sum()
+                            city_totals[city_name] = total if pd.notna(total) else 0.0
                     except Exception: pass # Ignore errors for single city aggregation
             city_data_agg = city_totals
             if not any(v > 0 for v in city_totals.values()): city_data_agg = {} # Reset if no data found
         else: # Calculate average for other variables
+            # Para otras variables, se calcula el promedio general del período.
             aggregation_type = "Promedio"
             cities_str = ",".join(AVAILABLE_CITIES)
             endpoint = "/weather/averages"; average_col_name = f"average_{variable_key}"
@@ -230,52 +222,51 @@ def fetch_and_process_period_map_data(variable_key: str, start_date: datetime.da
                     df_averages = pd.DataFrame(averages_data)
                     if average_col_name in df_averages.columns and 'city' in df_averages.columns:
                         df_averages[average_col_name] = pd.to_numeric(df_averages[average_col_name], errors='coerce')
+                        # Agrupa por ciudad y calcula la media de los promedios diarios devueltos para obtener la media del período completo.
                         city_period_means = df_averages.groupby('city')[average_col_name].mean()
                         city_data_agg = city_period_means.dropna().to_dict()
                 except Exception: pass # Ignore errors in aggregation
-    # Process for Map
-    if not city_data_agg: return None, aggregation_type
-    try:
-        map_df = pd.DataFrame(list(city_data_agg.items()), columns=['city', 'valor_mapa'])
-        map_df['lat'] = map_df['city'].map(lambda city: CITY_COORDS.get(city, {}).get('lat'))
-        map_df['lon'] = map_df['city'].map(lambda city: CITY_COORDS.get(city, {}).get('lon'))
-        map_df['variable_nombre_es'] = variable_es
-        map_df['periodo'] = f"{start_date.strftime('%d-%b')} a {end_date.strftime('%d-%b-%Y')}"
-        map_df['tipo_agregacion'] = aggregation_type
-        map_df = map_df.dropna(subset=['lat', 'lon', 'valor_mapa'])
-        return map_df if not map_df.empty else None, aggregation_type
-    except Exception: return None, aggregation_type
 
-def display_period_summary_map_section():
-    """Muestra el mapa de promedios/totales por período."""
+        if not city_data_agg: return None, aggregation_type
+        try:
+            map_df = pd.DataFrame(list(city_data_agg.items()), columns=['city', 'valor_mapa'])
+            map_df['lat'] = map_df['city'].map(lambda city: CITY_COORDS.get(city, {}).get('lat'))
+            map_df['lon'] = map_df['city'].map(lambda city: CITY_COORDS.get(city, {}).get('lon'))
+            map_df['variable_nombre_es'] = variable_es
+            map_df['periodo'] = f"{start_date.strftime('%d-%b')} a {end_date.strftime('%d-%b-%Y')}"
+            map_df['tipo_agregacion'] = aggregation_type
+            map_df = map_df.dropna(subset=['lat', 'lon', 'valor_mapa'])
+            return map_df if not map_df.empty else None, aggregation_type
+        except Exception: return None, aggregation_type
+
+def display_period_summary_map_section(start_date: datetime.date, end_date: datetime.date):
+    """
+    Muestra el mapa de promedios/totales por período,
+    utilizando las fechas globales proporcionadas.
+    """
     st.subheader("🗺️ Resumen Climático en el Mapa por Período")
-    col1, col2 = st.columns([2, 3])
-    with col1:
-        selected_variable_es = st.selectbox("Variable a Mapear", options=list(VARIABLE_MAP_ES.values()), index=0, key="map_period_var")
-        variable_key = [k for k, v in VARIABLE_MAP_ES.items() if v == selected_variable_es][0]
-    with col2:
-        today_co = datetime.now(COLOMBIA_TZ).date(); default_start_map = today_co - timedelta(days=6)
-        map_date_range = st.date_input("Rango de Fechas del Mapa", value=(default_start_map, today_co), max_value=today_co, key="map_period_daterange")
-    if isinstance(map_date_range, (tuple, list)) and len(map_date_range) == 2: start_date_map, end_date_map = map_date_range
-    else: start_date_map = default_start_map; end_date_map = today_co # Fallback
 
-    # --- Explicación Concisa ---
+    selected_variable_es = st.selectbox(
+        "Variable a Mapear",
+        options=list(VARIABLE_MAP_ES.values()),
+        index=0,
+        key="map_period_var"
+    )
+    variable_key = [k for k, v in VARIABLE_MAP_ES.items() if v == selected_variable_es][0]
+
     is_precip = variable_key == 'precipitation'
     aggregation_type_text = "Total Acumulado" if is_precip else "Promedio"
-    st.caption(f"Compara el valor **{aggregation_type_text.lower()}** de **{selected_variable_es}** entre ciudades para el período seleccionado. Usa la leyenda de color para interpretar.")
+    st.caption(f"Compara el valor **{aggregation_type_text.lower()}** de **{selected_variable_es}** entre ciudades para el período global seleccionado ({start_date.strftime('%d-%b-%Y')} a {end_date.strftime('%d-%b-%Y')}). Usa la leyenda de color para interpretar.")
 
-    # --- Obtención y Procesamiento de Datos ---
-    map_df, aggregation_type = fetch_and_process_period_map_data(variable_key, start_date_map, end_date_map)
+    map_df, aggregation_type = fetch_and_process_period_map_data(variable_key, start_date, end_date)
 
-    # --- Visualización ---
     if map_df is not None and not map_df.empty:
         with st.spinner("Generando mapa resumen..."):
             try:
                 vmin = map_df['valor_mapa'].min(); vmax = map_df['valor_mapa'].max()
                 if pd.isna(vmin) or pd.isna(vmax): vmin, vmax = None, None
-                elif vmin == vmax: vmin -= 1; vmax += 1
+                elif vmin == vmax: vmin -= 1; vmax += 1 # Add buffer if min == max
 
-                # Define color scale based on variable type
                 color_scale = px.colors.sequential.Viridis # Default
                 if variable_key in ["temperature_2m", "dew_point_2m"]:
                     color_scale = px.colors.sequential.RdBu_r # Red-Blue reversed (Red hot)
@@ -284,10 +275,11 @@ def display_period_summary_map_section():
                 elif variable_key in ["wind_speed_10m", "uv_index", "shortwave_radiation", "pressure_msl"]:
                     color_scale = px.colors.sequential.YlOrRd # Yellow-Orange-Red for intensity
 
-                # Handle size mapping only for non-negative variables if desired
                 size_col = None
                 if map_df['valor_mapa'].min() >= 0:
-                     map_df['size_plot'] = map_df['valor_mapa'].fillna(0) + (vmax * 0.05 if vmax and pd.notna(vmax) else 1)
+                     # Añade un tamaño base constante para evitar puntos de tamaño cero y escala según el valor.
+                     base_size_offset = (vmax * 0.05 if vmax and pd.notna(vmax) and vmax > 0 else 1)
+                     map_df['size_plot'] = map_df['valor_mapa'].fillna(0) + base_size_offset
                      size_col = 'size_plot'
 
                 fig = px.scatter_mapbox(
@@ -295,17 +287,33 @@ def display_period_summary_map_section():
                     size=size_col, size_max=30 if size_col else None,
                     hover_name="city",
                     hover_data={'variable_nombre_es': True, 'tipo_agregacion': True, 'valor_mapa': ":.2f", 'periodo': True, 'lat': False, 'lon': False, 'size_plot': False},
-                    color_continuous_scale=color_scale, # Apply conditional scale
+                    color_continuous_scale=color_scale,
                     range_color=[vmin, vmax] if vmin is not None else None,
                     mapbox_style="carto-positron", zoom=4.2, center={"lat": 4.57, "lon": -74.29},
                     title=f"Mapa Resumen: {selected_variable_es} ({aggregation_type})",
                     labels={"valor_mapa": f"{aggregation_type_text}"}
                 )
-                fig.update_traces(hovertemplate="<br>".join(["<b>Ciudad:</b> %{hovertext}", "<b>Variable:</b> %{customdata[0]}", "<b>Tipo:</b> %{customdata[1]}", "<b>Valor:</b> %{customdata[2]:.2f}", "<b>Período:</b> %{customdata[3]}<extra></extra>"]))
-                fig.update_layout(coloraxis_colorbar=dict(title=f"{aggregation_type_text}<br>{selected_variable_es.split('(')[0]}", thicknessmode="pixels", thickness=15, lenmode="fraction", len=0.75, yanchor="middle", y=0.5), margin={"r":10,"t":50,"l":10,"b":10})
+                # El hovertemplate referencia los datos en hover_data por su índice (customdata[0], customdata[1], etc.).
+                fig.update_traces(hovertemplate="<br>".join([
+                    "<b>Ciudad:</b> %{hovertext}",
+                    "<b>Variable:</b> %{customdata[0]}",
+                    "<b>Tipo:</b> %{customdata[1]}",
+                    f"<b>Valor:</b> %{{customdata[2]:.2f}}",
+                    "<b>Período:</b> %{customdata[3]}<extra></extra>"
+                ]))
+                fig.update_layout(
+                    coloraxis_colorbar=dict(
+                        title=f"{aggregation_type_text}<br>{selected_variable_es.split('(')[0]}",
+                        thicknessmode="pixels", thickness=15,
+                        lenmode="fraction", len=0.75,
+                        yanchor="middle", y=0.5
+                    ),
+                    margin={"r":10,"t":50,"l":10,"b":10}
+                )
                 st.plotly_chart(fig, use_container_width=True)
-            except Exception as e: st.error(f"Error generando mapa del período: {e}"); st.exception(e)
-    else: # No data returned from fetch/aggregation or processing failed
+            except Exception as e:
+                st.error(f"Error generando mapa del período: {e}")
+    else:
         st.info("No hay datos disponibles para mostrar en el mapa resumen con los parámetros seleccionados.")
 
 def display_correlation_scatter(city: str, start_date: datetime.date, end_date: datetime.date):
@@ -322,7 +330,6 @@ def display_correlation_scatter(city: str, start_date: datetime.date, end_date: 
         corr_var_y = [k for k, v in VARIABLE_MAP_ES.items() if v == selected_var_y_es][0]
     with col3: show_trendline = st.checkbox("Mostrar Tendencia", key=f"corr_trend_{city}", value=True, help="Dibuja una línea mostrando la tendencia general.")
 
-    # --- Explicación Concisa ---
     st.caption(f"Explora si **{selected_var_x_es}** y **{selected_var_y_es}** se mueven juntas (correlación) en **{city}**. Usa el coeficiente abajo para medir la fuerza.")
 
     endpoint = f"/weather/{city}/correlation"
@@ -331,7 +338,6 @@ def display_correlation_scatter(city: str, start_date: datetime.date, end_date: 
         correlation_data = fetch_api_data(endpoint, params, request_desc=f"correlación para {city}")
         correlation_df = process_data_for_plotting(correlation_data, time_col='time', parse_dates=True)
 
-    # --- Visualización ---
     corr_value = None
     if not correlation_df.empty and corr_var_x in correlation_df.columns and corr_var_y in correlation_df.columns:
          with st.spinner("Generando gráfico de correlación..."):
@@ -343,7 +349,7 @@ def display_correlation_scatter(city: str, start_date: datetime.date, end_date: 
                 fig.update_traces(hovertemplate=f"<b>{selected_var_x_es}</b>: %{{x}}<br><b>{selected_var_y_es}</b>: %{{y}}<br><b>Fecha</b>: %{{customdata[0]}}<extra></extra>")
                 st.plotly_chart(fig, use_container_width=True)
                 try: corr_value = plot_df[corr_var_x].corr(plot_df[corr_var_y])
-                except Exception: pass # Ignore correlation calculation error
+                except Exception: pass
              elif len(plot_df) <= 1: st.info("No hay suficientes datos para graficar/calcular correlación.")
              else: st.info("No hay datos válidos para graficar correlación.")
     elif correlation_df.empty and correlation_data is not None: st.info(f"No se encontraron datos de correlación para {city} en el período.")
@@ -362,7 +368,6 @@ def display_comparative_averages(start_date: datetime.date, end_date: datetime.d
     with col3: comp_granularity = st.selectbox("Agrupar Promedios por", options=["hourly", "daily", "weekly", "monthly"], index=0, format_func=lambda x: {"hourly":"Hora","daily":"Día","weekly":"Día Semana","monthly":"Mes"}.get(x,x), key="comp_granularity")
     if not comp_cities: st.warning("Por favor, selecciona al menos una ciudad."); return
 
-    # --- Explicación Concisa ---
     granularity_es_avg_map = {"hourly": "hora", "daily": "día", "weekly": "día de la semana", "monthly": "mes"}
     granularity_es_avg = granularity_es_avg_map.get(comp_granularity, comp_granularity)
     st.caption(f"Compara el promedio de **{selected_comp_var_es}** por **{granularity_es_avg}** entre las ciudades seleccionadas.")
@@ -376,19 +381,20 @@ def display_comparative_averages(start_date: datetime.date, end_date: datetime.d
         average_col = f"average_{comp_var}"
         averages_df = process_data_for_plotting(averages_data, time_col=None, value_col=average_col, parse_dates=False)
 
-    # --- Visualización ---
     if not averages_df.empty and period_col in averages_df.columns and average_col in averages_df.columns:
         with st.spinner("Generando gráfico comparativo..."):
             averages_df = averages_df.dropna(subset=[average_col])
             x_label = f"Período ({granularity_es_avg.title()})"; y_label = f"Promedio {selected_comp_var_es}"
             title = f"Comparación Promedio de {selected_comp_var_es} por {granularity_es_avg.title()}"; period_col_display = period_col; xaxis_opts = {}
-            try: # Prepare data for plotting
+            try:
                 if comp_granularity == "hourly": averages_df[period_col] = pd.to_numeric(averages_df[period_col], errors='coerce').astype(int); averages_df = averages_df.sort_values(by=[period_col, 'city']); x_label = "Hora del día (0-23)"
                 elif comp_granularity == "daily": averages_df[period_col] = pd.to_datetime(averages_df[period_col], errors='coerce'); averages_df = averages_df.sort_values(by=[period_col, 'city']); x_label = "Fecha"
                 elif comp_granularity == "weekly":
+                    # Mapea el número ISO del día de la semana (1=Lun) a su nombre en español.
                     averages_df[period_col] = pd.to_numeric(averages_df[period_col], errors='coerce').astype(int); day_map = {1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb', 7: 'Dom'}
                     averages_df['day_name'] = averages_df[period_col].map(day_map); averages_df = averages_df.sort_values(by=[period_col, 'city']); period_col_display = 'day_name'; x_label = "Día de la Semana"; xaxis_opts = {'type': 'category', 'categoryorder':'array', 'categoryarray':['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']}
                 elif comp_granularity == "monthly":
+                    # Mapea el número del mes (1=Ene) a su nombre abreviado en español.
                     averages_df[period_col] = pd.to_numeric(averages_df[period_col], errors='coerce').astype(int); month_map = {1: 'Ene', 2: 'Feb', 3: 'Mar', 4: 'Abr', 5: 'May', 6: 'Jun', 7: 'Jul', 8: 'Ago', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dic'}
                     averages_df['month_name'] = averages_df[period_col].map(month_map); averages_df = averages_df.sort_values(by=[period_col, 'city']); period_col_display = 'month_name'; x_label = "Mes"; xaxis_opts = {'type': 'category', 'categoryorder':'array', 'categoryarray':['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']}
                 else: averages_df = averages_df.sort_values(by=[period_col, 'city'])
@@ -396,6 +402,7 @@ def display_comparative_averages(start_date: datetime.date, end_date: datetime.d
 
             if not averages_df.empty:
                  color_discrete_map = {city: color for city, color in zip(averages_df['city'].unique(), px.colors.qualitative.Plotly)}
+                 # Usa gráficos de línea para granularidad horaria/diaria (continua) y barras para semanal/mensual (categórica).
                  if comp_granularity in ["hourly", "daily"]: fig = px.line(averages_df, x=period_col_display, y=average_col, color='city', title=title, labels={period_col_display: x_label, average_col: y_label, 'city': 'Ciudad'}, markers=True, color_discrete_map=color_discrete_map)
                  elif comp_granularity in ["weekly", "monthly"]: fig = px.bar(averages_df, x=period_col_display, y=average_col, color='city', title=title, labels={period_col_display: x_label, average_col: y_label, 'city': 'Ciudad'}, barmode='group', color_discrete_map=color_discrete_map)
                  else: fig = None
@@ -412,7 +419,6 @@ def display_distribution_chart(city: str, start_date: datetime.date, end_date: d
     selected_dist_var_es = st.selectbox("Variable a Analizar", options=list(VARIABLE_MAP_ES.values()), index=0, key=f"dist_var_es_{city}")
     dist_var = [k for k, v in VARIABLE_MAP_ES.items() if v == selected_dist_var_es][0]
 
-    # --- Explicación Concisa ---
     st.caption(f"Analiza qué tan variable fue la **{selected_dist_var_es}** en **{city}**. El histograma muestra valores comunes, el diagrama de caja resume la dispersión.")
 
     endpoint = f"/weather/{city}/trends"
@@ -421,7 +427,6 @@ def display_distribution_chart(city: str, start_date: datetime.date, end_date: d
         dist_data = fetch_api_data(endpoint, params, request_desc=f"datos para distribución en {city}")
         dist_df = process_data_for_plotting(dist_data, time_col='time', value_col=dist_var)
 
-    # --- Visualización ---
     if not dist_df.empty and dist_var in dist_df.columns:
          plot_df = dist_df.dropna(subset=[dist_var])
          if not plot_df.empty:
@@ -442,7 +447,6 @@ def display_full_history(city: str):
     """Muestra la tabla del historial completo en un expander."""
     st.subheader(f"📚 Tabla de Datos Históricos Detallados para {city}")
     with st.expander("Ver/Ocultar Tabla Completa", expanded=False):
-        # --- Explicación Concisa ---
         st.caption(f"Consulta todos los registros climáticos históricos disponibles para **{city}**")
 
         endpoint = f"/weather/{city}"
@@ -459,7 +463,7 @@ def display_full_history(city: str):
                 display_df = history_df_display.rename(columns=VARIABLE_MAP_ES).rename(columns={'time': 'Fecha y Hora'})
                 st.info(f"Mostrando las últimas {min(100, len(display_df))} de {len(display_df)} entradas.")
                 st.dataframe(display_df.head(100), use_container_width=True, height=300)
-                csv_data = convert_df_to_csv(history_df) # Use original data for download
+                csv_data = convert_df_to_csv(history_df)
                 st.download_button(label="Descargar Historial Completo (CSV)", data=csv_data, file_name=f"{city}_historial_climatico_{datetime.now().strftime('%Y%m%d')}.csv", mime='text/csv', key=f"download_csv_{city}")
         elif history_df.empty and history_data is not None: st.info(f"No hay datos históricos disponibles para {city}.")
 
@@ -467,7 +471,6 @@ def display_full_history(city: str):
 
 st.title("Análisis Climático de Colombia")
 
-# --- Propósito del Dashboard ---
 st.markdown("""
 Este proyecto se enfoca en el análisis y visualización de datos meteorológicos de 10 ciudades principales de Colombia, además de Leticia, incluida por interés en su particular comportamiento climático. Para la adquisición de datos, recurrimos a la API gratuita de Open-Meteo, extrayendo el historial disponible desde el 2 de febrero de 2022 para las variables: `time`, `temperature_2m`, `relative_humidity_2m`, `dew_point_2m`, `precipitation`, `wind_speed_10m`, `uv_index`, `pressure_msl`, `shortwave_radiation` y `cloud_cover`. Inicialmente, descargamos manualmente la información para cada ciudad desde el sitio web de Open-Meteo y la consolidamos en un único archivo CSV.
 
@@ -481,7 +484,6 @@ La comprensión detallada del clima en Colombia es crucial para diversos sectore
 """)
 st.markdown("---")
 
-# --- Barra Lateral (Controles Globales) ---
 st.sidebar.header("Controles Globales")
 selected_city = st.sidebar.selectbox(
     "1. Selecciona Ciudad Principal", options=AVAILABLE_CITIES, index=AVAILABLE_CITIES.index("Bogota"),
@@ -497,37 +499,27 @@ st.sidebar.info(f"API simulada en: `{API_BASE_URL}`")
 st.sidebar.caption("Proyecto Bases de Datos")
 st.sidebar.caption("Creado por: Sebastian Ibañez & Daniel Cruzado")
 
-
-# --- Cuerpo Principal del Dashboard (Scrolling) ---
-
 st.markdown(f"### Análisis para: **{selected_city}** | Período: **{global_start_date.strftime('%d-%b-%Y')}** a **{global_end_date.strftime('%d-%b-%Y')}**")
 st.markdown("---")
 
-# Sección 1: Evolución Temporal
 display_trends_chart(selected_city, global_start_date, global_end_date)
 st.divider()
 
-# Sección 2: Resumen de Lluvias
 display_precipitation_summary(selected_city, global_start_date, global_end_date)
 st.divider()
 
-# Sección 3: Mapa Resumen por Período
-display_period_summary_map_section() # Usa sus propios controles internos de fecha/variable
+display_period_summary_map_section(global_start_date, global_end_date)
 st.divider()
 
-# Sección 4: Correlación entre Variables
 display_correlation_scatter(selected_city, global_start_date, global_end_date)
 st.divider()
 
-# Sección 5: Comparación entre Ciudades
 display_comparative_averages(global_start_date, global_end_date)
 st.divider()
 
-# Sección 6: Análisis de Distribución/Variabilidad
 display_distribution_chart(selected_city, global_start_date, global_end_date)
 st.divider()
 
-# Sección 7: Tabla Historial Completo
 display_full_history(selected_city)
 
 st.markdown("---")

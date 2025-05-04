@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 
+# Define la estructura y tipos de datos
 class WeatherRecord(BaseModel):
     id: int
     time: datetime
@@ -16,4 +17,5 @@ class WeatherRecord(BaseModel):
     city: str
 
     class Config:
-        from_attributes = True # Permite crear el modelo desde atributos de objeto (como registros de BD)
+        # Permite la creación del modelo a partir de atributos de objeto
+        from_attributes = True 
