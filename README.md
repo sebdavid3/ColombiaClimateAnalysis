@@ -43,7 +43,11 @@ Follow these steps to set up and run the project locally.
 
 5.  **Prepare the Database:**
     *   Ensure the database specified in `.env` exists.
-    *   Create the `weather_data` table. You can use the following SQL structure as a reference (adjust types if needed):
+*   You can use the following SQL file as a reference or execute it directly:  
+    👉 [Download SQL script from OneDrive](https://uninorte-my.sharepoint.com/personal/sdibanez_uninorte_edu_co/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fsdibanez%5Funinorte%5Fedu%5Fco%2FDocuments%2Fcolombia%5Fclima%2Esql&parent=%2Fpersonal%2Fsdibanez%5Funinorte%5Fedu%5Fco%2FDocuments&ga=1)
+
+*   Alternatively, you can create the table manually using the following structure (adjust data types as needed):
+
         ```sql
         CREATE TABLE IF NOT EXISTS weather_data
         (
