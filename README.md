@@ -143,3 +143,16 @@ The backend API provides the following endpoints (base URL: `http://localhost:80
 
 *   Sebastian Ibañez ([GitHub](https://github.com/sebdavid3))
 *   Daniel Cruzado ([GitHub](https://github.com/AlexDanii))
+
+
+![image](https://github.com/user-attachments/assets/a63912b1-6c7b-4b56-a3f5-e2a913bf2f19)
+![image](https://github.com/user-attachments/assets/98711bfd-db40-4582-a388-e56297bcd862)
+![image](https://github.com/user-attachments/assets/a67bdb8b-099a-438c-afbb-4b4cb9ae9c18)
+![image](https://github.com/user-attachments/assets/097d246b-48a1-4df2-a331-af82da92a0f8)
+![image](https://github.com/user-attachments/assets/4375f998-0920-4566-b130-d9fa041bfbd5)
+![image](https://github.com/user-attachments/assets/20f514e0-c64a-4020-a163-d5d963ae7ff6)
+
+
+
+
+
