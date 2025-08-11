@@ -26,8 +26,8 @@ def _get_api_base_url() -> str:
     env_val = os.getenv("API_BASE_URL")
     if env_val:
         return env_val.rstrip("/")
-    # Local default
-    return "http://localhost:8000"
+    # Production backend on Render
+    return "https://colombiaclimateanalysis.onrender.com"
 
 API_BASE_URL = _get_api_base_url()
 AVAILABLE_CITIES = ["Barranquilla", "Bogota", "Bucaramanga", "Ibague", "Cali", "Cartagena", "Cucuta", "Medellin", "Leticia", "Pereira", "Santa Marta"]
@@ -197,11 +197,11 @@ def get_last_update_info():
 def is_running_locally():
     """Detect if the application is running locally."""
     try:
-    # Check if we are in a local development environment
+        # Check if we are in a local development environment
         import socket
         hostname = socket.gethostname()
         
-    # Local environment indicators
+        # Local environment indicators
         local_indicators = [
             "localhost" in API_BASE_URL.lower(),
             "127.0.0.1" in API_BASE_URL,
