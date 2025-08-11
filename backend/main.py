@@ -53,21 +53,18 @@ app = FastAPI(
     lifespan=lifespan # Registra la función lifespan para gestionar recursos.
 )
 
-# CORS para permitir llamadas desde Streamlit Cloud u otros orígenes configurados
-frontend_origins_env = os.getenv("FRONTEND_CORS_ORIGINS", "").strip()
-allowed_origins = [o.strip() for o in frontend_origins_env.split(",") if o.strip()]
-# Siempre permitir localhost para desarrollo
-allowed_origins.extend([
-    "http://localhost",
-    "http://localhost:3000",
-    "http://localhost:8501",
-    "http://127.0.0.1",
-    "http://127.0.0.1:8501",
-])
+# CORS: por defecto permite cualquier origen (*) para facilitar el primer despliegue.
+# Si estableces FRONTEND_CORS_ORIGINS (coma-separado), se usará esa lista.
+frontend_origins_env = os.getenv("FRONTEND_CORS_ORIGINS", "").strip().lower()
+if frontend_origins_env in ("", "*", "any"):
+    allowed_origins = ["*"]
+else:
+    allowed_origins = [o.strip() for o in frontend_origins_env.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins if allowed_origins else ["*"],
-    allow_credentials=False,
+    allow_origins=allowed_origins,
+    allow_credentials=False,  # debe ser False cuando allow_origins es "*"
     allow_methods=["*"],
     allow_headers=["*"],
 )
