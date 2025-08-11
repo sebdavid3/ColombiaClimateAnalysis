@@ -40,10 +40,8 @@ async def lifespan(app: FastAPI):
 
         # Nota: Si usas el Transaction Pooler de Supabase (PgBouncer en modo transacción),
         # no soporta PREPARE statements. Deshabilitamos el cache de prepared statements
-        # it does not support PREPARE statements. We disable prepared statement cache to avoid errors like "prepared statement does not exist".
-        # it does not support PREPARE statements. We disable the prepared statement cache
-        # to avoid errors like "prepared statement does not exist".
-    db_pool = await asyncpg.create_pool(
+        # para evitar errores como "prepared statement does not exist".
+        db_pool = await asyncpg.create_pool(
             db_url,
             min_size=1,
             max_size=10,
