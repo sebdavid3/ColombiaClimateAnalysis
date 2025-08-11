@@ -5,10 +5,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import pytz 
-from dateutil.relativedelta import relativedelta 
-import subprocess
-import os
-import sys 
+from dateutil.relativedelta import relativedelta
+import os 
 
 # --- Configuración Inicial y Constantes ---
 
@@ -26,7 +24,7 @@ def _get_api_base_url() -> str:
     env_val = os.getenv("API_BASE_URL")
     if env_val:
         return env_val.rstrip("/")
-    # Production backend on Render
+    # Always use production backend on Render
     return "https://colombiaclimateanalysis.onrender.com"
 
 API_BASE_URL = _get_api_base_url()
@@ -194,54 +192,6 @@ def get_last_update_info():
     
     return "Unknown", "N/A", "gray"
 
-def is_running_locally():
-    """Detect if the application is running locally."""
-    try:
-        # Check if we are in a local development environment
-        import socket
-        hostname = socket.gethostname()
-        
-        # Local environment indicators
-        local_indicators = [
-            "localhost" in API_BASE_URL.lower(),
-            "127.0.0.1" in API_BASE_URL,
-            ":8000" in API_BASE_URL,
-            hostname.lower() in ["localhost", "127.0.0.1"],
-            os.path.exists(os.path.join(os.path.dirname(__file__), "scripts", "update_weather.py"))
-        ]
-        
-        return any(local_indicators)
-    except:
-        return False
-
-def update_weather_data_local():
-    """Run the local weather update script via subprocess."""
-    try:
-        # Path to the update script
-        script_path = os.path.join(os.path.dirname(__file__), "scripts", "update_weather.py")
-        
-        # Verify that the script exists
-        if not os.path.exists(script_path):
-            return False, f"Script not found at: {script_path}"
-        
-        # Execute the script
-        result = subprocess.run(
-            [sys.executable, script_path],
-            capture_output=True,
-            text=True,
-            timeout=300  # 5 minutos de timeout
-        )
-        
-        if result.returncode == 0:
-            return True, "Weather data updated successfully"
-        else:
-            return False, f"Error running script: {result.stderr}"
-            
-    except subprocess.TimeoutExpired:
-        return False, "The update process exceeded the time limit (5 minutes)"
-    except Exception as e:
-        return False, f"Unexpected error: {str(e)}"
-
 def update_weather_data_remote():
     """Trigger data update via the remote API."""
     try:
@@ -261,11 +211,8 @@ def update_weather_data_remote():
         return False, f"Error connecting to API: {str(e)}"
 
 def update_weather_data():
-    """Run the weather update using the appropriate method based on the environment."""
-    if is_running_locally():
-        return update_weather_data_local()
-    else:
-        return update_weather_data_remote()
+    """Trigger data update via the remote API."""
+    return update_weather_data_remote()
 
 # Trigger data update automatically on page load (no manual buttons)
 try:
@@ -677,11 +624,6 @@ Developed by:
 st.markdown("---")
 
 st.sidebar.header("Global Controls")
-
-# Environment information
-is_local = is_running_locally()
-env_info = "Local" if is_local else "Cloud"
-st.sidebar.caption(f"Environment: {env_info}")
 
 # Data status
 status, last_update, status_color = get_last_update_info()
