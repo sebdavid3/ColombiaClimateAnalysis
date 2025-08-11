@@ -103,9 +103,13 @@ You need to run the backend API and the frontend dashboard separately.
     ```
     Streamlit will typically open the dashboard automatically in your web browser.
 
-## ⚙️ Updating Data
+### Updating Data
 
-To fetch the latest weather data from Open-Meteo and add it to your database, run the update script:
+The dashboard triggers a data update automatically on page load. It also queries the backend status endpoint to display data freshness. No manual update controls are shown in the UI.
+
+If you need to update manually outside the app, run the script:
+
+To fetch the latest weather data from Open-Meteo manually, run the update script:
 
 ```bash
 python scripts/update_weather.py
@@ -117,6 +121,44 @@ This script will:
 *   Handles timezone conversions (API uses UTC, database stores local time).
 
 You can schedule this script to run periodically (e.g., using cron on Linux/macOS or Task Scheduler on Windows) to keep the data up-to-date.
+
+### ☁️ Cloud Deployment with Auto-Update
+
+For production deployment in the cloud, this project includes several deployment configurations and automatic update mechanisms:
+
+**Supported Platforms:**
+- Railway (includes free PostgreSQL)
+- Render.com (good free tier)
+- Heroku (classic option)
+- AWS/GCP/Azure (Docker)
+
+**Auto-Update Options:**
+- GitHub Actions (recommended - runs every 30 minutes)
+- Platform cron jobs (Railway/Render scheduler)
+- External cron services (EasyCron, cron-job.org)
+
+**Key Features for Cloud:**
+- 🌤️ **Smart Environment Detection**: Automatically switches between local and remote update methods
+- 📊 **Real-time Status API**: Monitor data freshness via `/update-weather/status`
+- 🔄 **Remote Update Trigger**: Update data via API endpoint `/update-weather`
+- 🏠/☁️ **Environment Indicator**: Dashboard shows if running locally or in cloud
+
+**Quick Cloud Setup:**
+1. Choose a platform (Railway recommended for beginners)
+2. Connect your GitHub repository
+3. Add PostgreSQL database
+4. Configure environment variables (`DATABASE_URL`)
+5. Enable GitHub Actions for auto-updates
+6. Deploy!
+
+📖 **Complete deployment guide:** See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed step-by-step instructions.
+
+### Configuration Files Included:
+- `Procfile` - Railway/Heroku deployment
+- `railway.toml` - Railway-specific config
+- `render.yaml` - Render.com multi-service setup
+- `Dockerfile` + `start.sh` - Container deployment
+- `.github/workflows/update-weather.yml` - GitHub Actions scheduler
 
 ## 📄 API Endpoints
 

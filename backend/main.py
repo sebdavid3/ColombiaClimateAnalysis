@@ -1,9 +1,13 @@
 import asyncpg
-from fastapi import FastAPI, Depends, HTTPException, status, Query
+from fastapi import FastAPI, Depends, HTTPException, status, Query, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, List, Dict, Any, Optional, Set
 from datetime import datetime, date, timedelta
 import traceback
+import os
+import sys
+from urllib.parse import urlparse
 
 from .config import settings
 from .schemas.weather import WeatherRecord
@@ -18,15 +22,24 @@ async def lifespan(app: FastAPI):
     print("Iniciando aplicación y conexión a BD...")
     global db_pool
     try:
-        db_pool = await asyncpg.create_pool(settings.database_url, min_size=1, max_size=10)
+        # Habilitar SSL si la URL o variables lo requieren (p.ej., Supabase)
+        db_url = settings.database_url
+        # ssl=True habilita un contexto SSL por defecto en asyncpg
+        ssl_required_env = os.getenv("DB_SSL", "").lower() in {"1", "true", "yes", "require"}
+        ssl_required_url = any(k in db_url.lower() for k in ("sslmode=require", "ssl=true"))
+        parsed = urlparse(db_url)
+        ssl_param = True if (ssl_required_env or ssl_required_url or (parsed.hostname and "supabase" in parsed.hostname)) else False
+
+        db_pool = await asyncpg.create_pool(db_url, min_size=1, max_size=10, ssl=ssl_param)
         # Verifica la conexión inicial al adquirir y ejecutar un comando simple.
         async with db_pool.acquire() as connection:
-             await connection.fetchval("SELECT 1")
+            await connection.fetchval("SELECT 1")
         print("Conexión a la base de datos establecida exitosamente.")
     except Exception as e:
         print(f"!! Error al inicializar el pool de la base de datos: {e} !!")
-        db_pool = None # Asegura que el pool no se use si la inicialización falla.
-    yield # Permite que la aplicación se ejecute
+        db_pool = None  # Asegura que el pool no se use si la inicialización falla.
+    # Permite que la aplicación se ejecute
+    yield
 
     print("Cerrando conexión a la base de datos...")
     if db_pool:
@@ -38,6 +51,25 @@ app = FastAPI(
     description="Api para obtener el clima de Colombia conectada a una base de datos",
     version="1.0.0",
     lifespan=lifespan # Registra la función lifespan para gestionar recursos.
+)
+
+# CORS para permitir llamadas desde Streamlit Cloud u otros orígenes configurados
+frontend_origins_env = os.getenv("FRONTEND_CORS_ORIGINS", "").strip()
+allowed_origins = [o.strip() for o in frontend_origins_env.split(",") if o.strip()]
+# Siempre permitir localhost para desarrollo
+allowed_origins.extend([
+    "http://localhost",
+    "http://localhost:3000",
+    "http://localhost:8501",
+    "http://127.0.0.1",
+    "http://127.0.0.1:8501",
+])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins if allowed_origins else ["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Dependencia de FastAPI para obtener una conexión de base de datos del pool.
@@ -56,6 +88,9 @@ async def get_db_connection() -> AsyncGenerator[asyncpg.Connection, None]:
         conn = await db_pool.acquire()
         # Entrega la conexión a la función de ruta que la solicitó.
         yield conn
+    except HTTPException:
+        # Re-lanza las HTTPException sin modificar (404, 422, etc.)
+        raise
     except Exception as e:
         print(f"!!!!!!!! ERROR en get_db_connection (acquire/yield): {e} !!!!!!!!")
         raise HTTPException(
@@ -588,4 +623,156 @@ async def get_city_weather(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error interno del servidor al obtener datos para {city_name}."
+        )
+
+# --- Endpoint para Actualización de Datos ---
+
+async def run_weather_update():
+    """
+    Función que ejecuta la actualización de datos climáticos.
+    En producción, esto importa y ejecuta el script de actualización sin subprocess.
+    """
+    try:
+        # Importar el módulo de actualización
+        sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+        
+        # Importar las funciones necesarias del script de actualización
+        from scripts.update_weather import update_all_cities
+        
+        # Ejecutar la actualización
+        await update_all_cities()
+        
+        return {"success": True, "message": "Datos climáticos actualizados exitosamente"}
+        
+    except Exception as e:
+        error_msg = f"Error durante la actualización: {str(e)}"
+        print(f"!!!!!!!! {error_msg} !!!!!!!!")
+        traceback.print_exc()
+        return {"success": False, "message": error_msg}
+
+@app.post("/update-weather")
+async def trigger_weather_update(background_tasks: BackgroundTasks):
+    """
+    Endpoint para activar la actualización de datos climáticos.
+    Ejecuta la actualización en segundo plano para evitar timeouts.
+    """
+    try:
+        # Ejecutar la actualización en segundo plano
+        background_tasks.add_task(run_weather_update)
+        
+        return {
+            "status": "started",
+            "message": "Actualización de datos climáticos iniciada en segundo plano",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"!!!!!!!! ERROR al iniciar actualización: {e} !!!!!!!!")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al iniciar la actualización: {str(e)}"
+        )
+
+@app.get("/data-info")
+async def get_data_info(conn: asyncpg.Connection = Depends(get_db_connection)):
+    """
+    Endpoint para obtener información detallada sobre los datos disponibles.
+    """
+    try:
+        # Obtener información por ciudad
+        query = """
+            SELECT 
+                city,
+                COUNT(*) as record_count,
+                MIN(time) as earliest_date,
+                MAX(time) as latest_date
+            FROM weather_data
+            GROUP BY city
+            ORDER BY city
+        """
+        
+        records = await conn.fetch(query)
+        
+        cities_info = []
+        for r in records:
+            cities_info.append({
+                "city": r['city'],
+                "record_count": r['record_count'],
+                "earliest_date": r['earliest_date'].isoformat() if r['earliest_date'] else None,
+                "latest_date": r['latest_date'].isoformat() if r['latest_date'] else None
+            })
+        
+        return {
+            "cities": cities_info,
+            "total_cities": len(cities_info),
+            "total_records": sum([c['record_count'] for c in cities_info])
+        }
+            
+    except Exception as e:
+        print(f"!!!!!!!! ERROR al obtener información de datos: {e} !!!!!!!!")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener información de datos: {str(e)}"
+        )
+
+@app.get("/update-weather/status")
+async def get_update_status(conn: asyncpg.Connection = Depends(get_db_connection)):
+    """
+    Endpoint para verificar el estado de los datos y la última actualización.
+    """
+    try:
+        # Obtener el timestamp más reciente de cualquier ciudad
+        query = """
+            SELECT MAX(time) as last_update, 
+                   COUNT(*) as total_records,
+                   COUNT(DISTINCT city) as cities_count
+            FROM weather_data
+        """
+        
+        result = await conn.fetchrow(query)
+        
+        if result and result['last_update']:
+            last_update = result['last_update']
+            now = datetime.now()
+            
+            # Calcular diferencia de tiempo
+            if isinstance(last_update, datetime):
+                time_diff = now - last_update
+            else:
+                time_diff = timedelta(days=999)  # Valor por defecto si hay problemas
+            
+            # Determinar estado
+            if time_diff.total_seconds() < 3600:  # Menos de 1 hora
+                status_info = "updated"
+                status_emoji = "🟢"
+            elif time_diff.total_seconds() < 86400:  # Menos de 1 día
+                status_info = "recent"
+                status_emoji = "🟡"
+            else:  # Más de 1 día
+                status_info = "outdated"
+                status_emoji = "🔴"
+            
+            return {
+                "status": status_info,
+                "status_emoji": status_emoji,
+                "last_update": last_update.isoformat() if last_update else None,
+                "total_records": result['total_records'],
+                "cities_count": result['cities_count'],
+                "time_since_update_hours": round(time_diff.total_seconds() / 3600, 2)
+            }
+        else:
+            return {
+                "status": "no_data",
+                "status_emoji": "❓",
+                "last_update": None,
+                "total_records": 0,
+                "cities_count": 0,
+                "time_since_update_hours": None
+            }
+            
+    except Exception as e:
+        print(f"!!!!!!!! ERROR al obtener estado de actualización: {e} !!!!!!!!")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener el estado de actualización: {str(e)}"
         )

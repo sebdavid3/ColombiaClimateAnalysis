@@ -1,4 +1,119 @@
+############################
+# OS-generated files
+############################
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+~$*
+
+############################
+# Python
+############################
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+*.pyd
+*.dll
+
+############################
+# Distribution / packaging
+############################
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+############################
+# Virtual environments
+############################
 .venv/
+venv/
+env/
+ENV/
+.conda/
+.python-version
+
+############################
+# Installer logs
+############################
+pip-log.txt
+pip-delete-this-directory.txt
+
+############################
+# Unit test / coverage
+############################
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+############################
+# Type checkers / analyzers
+############################
+.mypy_cache/
+.pytype/
+.pyre/
+.ruff_cache/
+
+############################
+# Jupyter / notebooks
+############################
+.ipynb_checkpoints/
+*.ipynb
+
+############################
+# Logs & caches
+############################
+*.log
+.cache/
+
+############################
+# Editors / IDE
+############################
+.vscode/
+.idea/
+*.code-workspace
+
+############################
+# Environment variables
+############################
 .env
+.env.*
+!.env.example
+
+############################
+# Framework specific
+############################
+# Streamlit
+.streamlit/secrets.toml
+.streamlit/**/secrets.toml
+
+# Uvicorn/Starlette run artifacts
+*.pid
+
+############################
+# Data helper ignores (keep tracked data, ignore temp/cache)
+############################
+Data/**/.ipynb_checkpoints/
+Data/**/tmp/
+Data/**/cache/
+
