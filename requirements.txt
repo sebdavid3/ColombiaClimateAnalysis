@@ -12,3 +12,4 @@ statsmodels
 python-dotenv
 python-dateutil
 pytz
+certifi

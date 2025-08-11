@@ -7,6 +7,8 @@ from datetime import datetime, date, timedelta
 import traceback
 import os
 import sys
+import ssl
+import certifi
 from urllib.parse import urlparse
 
 from .config import settings
@@ -24,16 +26,24 @@ async def lifespan(app: FastAPI):
     try:
         # Habilitar SSL si la URL o variables lo requieren (p.ej., Supabase)
         db_url = settings.database_url
-        # ssl=True habilita un contexto SSL por defecto en asyncpg
+        # ssl: construye un contexto SSL confiando en certifi cuando se requiere (Supabase/externo)
         ssl_required_env = os.getenv("DB_SSL", "").lower() in {"1", "true", "yes", "require"}
         ssl_required_url = any(k in db_url.lower() for k in ("sslmode=require", "ssl=true"))
         parsed = urlparse(db_url)
-        ssl_param = True if (ssl_required_env or ssl_required_url or (parsed.hostname and "supabase" in parsed.hostname)) else False
+        need_ssl = bool(ssl_required_env or ssl_required_url or (parsed.hostname and "supabase" in parsed.hostname))
+        ssl_param = None
+        if need_ssl:
+            ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+            ssl_ctx.check_hostname = True
+            ssl_ctx.verify_mode = ssl.CERT_REQUIRED
+            ssl_param = ssl_ctx
 
         # Nota: Si usas el Transaction Pooler de Supabase (PgBouncer en modo transacción),
         # no soporta PREPARE statements. Deshabilitamos el cache de prepared statements
-        # para evitar errores como "prepared statement does not exist".
-        db_pool = await asyncpg.create_pool(
+        # it does not support PREPARE statements. We disable prepared statement cache to avoid errors like "prepared statement does not exist".
+        # it does not support PREPARE statements. We disable the prepared statement cache
+        # to avoid errors like "prepared statement does not exist".
+    db_pool = await asyncpg.create_pool(
             db_url,
             min_size=1,
             max_size=10,
