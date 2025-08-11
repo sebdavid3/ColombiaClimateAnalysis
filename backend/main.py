@@ -30,7 +30,16 @@ async def lifespan(app: FastAPI):
         parsed = urlparse(db_url)
         ssl_param = True if (ssl_required_env or ssl_required_url or (parsed.hostname and "supabase" in parsed.hostname)) else False
 
-        db_pool = await asyncpg.create_pool(db_url, min_size=1, max_size=10, ssl=ssl_param)
+        # Nota: Si usas el Transaction Pooler de Supabase (PgBouncer en modo transacción),
+        # no soporta PREPARE statements. Deshabilitamos el cache de prepared statements
+        # para evitar errores como "prepared statement does not exist".
+        db_pool = await asyncpg.create_pool(
+            db_url,
+            min_size=1,
+            max_size=10,
+            ssl=ssl_param,
+            statement_cache_size=0,
+        )
         # Verifica la conexión inicial al adquirir y ejecutar un comando simple.
         async with db_pool.acquire() as connection:
             await connection.fetchval("SELECT 1")
