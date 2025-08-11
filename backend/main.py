@@ -34,8 +34,8 @@ async def lifespan(app: FastAPI):
         ssl_param = None
         if need_ssl:
             ssl_ctx = ssl.create_default_context(cafile=certifi.where())
-            ssl_ctx.check_hostname = True
-            ssl_ctx.verify_mode = ssl.CERT_REQUIRED
+            ssl_ctx.check_hostname = False  # Disable hostname verification for Supabase pooler
+            ssl_ctx.verify_mode = ssl.CERT_NONE  # Disable certificate verification for compatibility
             ssl_param = ssl_ctx
 
         # Nota: Si usas el Transaction Pooler de Supabase (PgBouncer en modo transacción),
